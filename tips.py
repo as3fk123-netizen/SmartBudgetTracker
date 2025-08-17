@@ -15,12 +15,12 @@ SAVING_TIPS = [
     "Use a 24-hour rule before impulse purchases."
 ]
 
-# API key is now securely loaded from .env
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+# API key for OpenRouter (Qwen model)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+QWEN_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 def get_ai_tip():
-    """Fetches AI-powered tip based on summary and expense data."""
+    """Fetches AI-powered tip based on summary and expense data using Qwen via OpenRouter."""
     summary_text = get_summary()
     expense_data = get_expense_summary()
 
@@ -34,18 +34,28 @@ def get_ai_tip():
     )
 
     # If API key missing, fallback to static tips
-    if not GEMINI_API_KEY:
+    if not OPENROUTER_API_KEY:
         return random.choice(SAVING_TIPS)
 
     try:
         response = requests.post(
-            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
-            headers={"Content-Type": "application/json"},
-            json={"contents": [{"parts": [{"text": prompt}]}]}
+            QWEN_URL,
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "qwen/qwen-2.5-7b-instruct",   # ✅ Qwen model
+                "messages": [
+                    {"role": "system", "content": "You are a helpful financial advisor."},
+                    {"role": "user", "content": prompt}
+                ]
+            }
         )
         response.raise_for_status()
         data = response.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+        print("DEBUG:", data)  # 👈 for testing, can remove later
+        return data["choices"][0]["message"]["content"]
     except Exception as e:
         print("Error fetching AI tip:", e)
         return random.choice(SAVING_TIPS)
